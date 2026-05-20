@@ -52,8 +52,6 @@
 
 <input type="text" id="search" placeholder="Search ZIP, County, Score..." />
 
-<input type="file" id="fileInput" accept=".csv" />
-
 <table id="table">
   <thead>
     <tr>
@@ -69,16 +67,14 @@
 <script>
 let data = [];
 
-// Load CSV via file upload (GitHub-safe approach)
-document.getElementById("fileInput").addEventListener("change", function (e) {
-  const file = e.target.files[0];
+// 🔥 Load CSV directly from repo (NO upload needed)
+fetch("NYZipCodes.csv")
+  .then(res => res.text())
+  .then(text => {
 
-  const reader = new FileReader();
-  reader.onload = function (event) {
+    const lines = text.split("\n");
 
-    const lines = event.target.result.split("\n");
-
-    // Remove first title row
+    // remove title row
     const cleaned = lines.slice(1).join("\n");
 
     const parsed = Papa.parse(cleaned, {
@@ -86,18 +82,15 @@ document.getElementById("fileInput").addEventListener("change", function (e) {
       skipEmptyLines: true
     }).data;
 
-    // Filter BK, Queens, Manhattan
+    // filter BK / Queens / Manhattan
     data = parsed.filter(r =>
       ["Kings", "Queens", "New York"].includes(r.County)
     );
 
     render(data);
-  };
+  });
 
-  reader.readAsText(file);
-});
-
-// Render table
+// render table
 function render(rows) {
   const tbody = document.querySelector("#table tbody");
   tbody.innerHTML = "";
@@ -116,7 +109,7 @@ function render(rows) {
   });
 }
 
-// Search
+// search
 document.getElementById("search").addEventListener("input", function () {
   const q = this.value.toLowerCase();
 
@@ -129,14 +122,14 @@ document.getElementById("search").addEventListener("input", function () {
   render(filtered);
 });
 
-// Sort
+// sort
 function sortTable(colIndex) {
   const keys = ["Rank", "ZIP Code", "County", "Overall Score"];
   const key = keys[colIndex];
 
-  data.sort((a, b) => {
-    return (parseFloat(a[key]) || 0) - (parseFloat(b[key]) || 0);
-  });
+  data.sort((a, b) =>
+    (parseFloat(a[key]) || 0) - (parseFloat(b[key]) || 0)
+  );
 
   render(data);
 }
