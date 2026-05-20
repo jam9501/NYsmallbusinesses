@@ -1,87 +1,93 @@
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
 <script>
-let data = [];
+document.addEventListener("DOMContentLoaded", () => {
 
-// 🚀 robust GitHub Pages CSV loader
-async function loadCSV() {
-  try {
-    const csvURL = new URL("NYZipCodes.csv", window.location.href);
-    const res = await fetch(csvURL);
+  let data = [];
 
-    if (!res.ok) {
-      throw new Error("CSV not found: " + res.status);
+  async function loadCSV() {
+    try {
+      // safest GitHub Pages path resolution
+      const csvURL = new URL("NYZipCodes.csv", window.location.href);
+
+      const res = await fetch(csvURL);
+      if (!res.ok) throw new Error("CSV not found: " + res.status);
+
+      const text = await res.text();
+
+      // remove your "title row"
+      const lines = text.split("\n");
+      const cleaned = lines.slice(1).join("\n");
+
+      const parsed = Papa.parse(cleaned, {
+        header: true,
+        skipEmptyLines: true
+      }).data;
+
+      // filter boroughs
+      data = parsed.filter(r =>
+        ["Kings", "Queens", "New York"].includes(r.County)
+      );
+
+      render(data);
+
+    } catch (err) {
+      console.error(err);
+      document.body.innerHTML =
+        "<h3 style='color:red'>Failed to load CSV. Check filename/path in repo.</h3>";
     }
+  }
 
-    const text = await res.text();
+  function render(rows) {
+    const tbody = document.querySelector("#table tbody");
+    if (!tbody) return;
 
-    // remove title row (your file issue)
-    const lines = text.split("\n");
-    const cleaned = lines.slice(1).join("\n");
+    tbody.innerHTML = "";
 
-    const parsed = Papa.parse(cleaned, {
-      header: true,
-      skipEmptyLines: true
-    }).data;
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
 
-    // filter BK / Queens / Manhattan
-    data = parsed.filter(r =>
-      ["Kings", "Queens", "New York"].includes(r.County)
+      tr.innerHTML = `
+        <td>${r.Rank ?? ""}</td>
+        <td>${r["ZIP Code"] ?? ""}</td>
+        <td>${r.County ?? ""}</td>
+        <td>${r["Overall Score"] ?? ""}</td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // search
+  const search = document.getElementById("search");
+
+  if (search) {
+    search.addEventListener("input", (e) => {
+      const q = e.target.value.toLowerCase();
+
+      const filtered = data.filter(r =>
+        Object.values(r).some(v =>
+          String(v).toLowerCase().includes(q)
+        )
+      );
+
+      render(filtered);
+    });
+  }
+
+  // sort
+  window.sortTable = function(colIndex) {
+    const keys = ["Rank", "ZIP Code", "County", "Overall Score"];
+    const key = keys[colIndex];
+
+    data.sort((a, b) =>
+      (parseFloat(a[key]) || 0) - (parseFloat(b[key]) || 0)
     );
 
     render(data);
+  };
 
-  } catch (err) {
-    console.error("CSV load failed:", err);
-    document.body.insertAdjacentHTML(
-      "beforeend",
-      "<p style='color:red'>CSV failed to load. Check file path in GitHub repo.</p>"
-    );
-  }
-}
+  loadCSV();
 
-// render table
-function render(rows) {
-  const tbody = document.querySelector("#table tbody");
-  tbody.innerHTML = "";
-
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${r.Rank || ""}</td>
-      <td>${r["ZIP Code"] || ""}</td>
-      <td>${r.County || ""}</td>
-      <td>${r["Overall Score"] || ""}</td>
-    `;
-
-    tbody.appendChild(tr);
-  });
-}
-
-// search
-document.getElementById("search").addEventListener("input", function () {
-  const q = this.value.toLowerCase();
-
-  const filtered = data.filter(r =>
-    Object.values(r).some(v =>
-      String(v).toLowerCase().includes(q)
-    )
-  );
-
-  render(filtered);
 });
-
-// sort
-function sortTable(colIndex) {
-  const keys = ["Rank", "ZIP Code", "County", "Overall Score"];
-  const key = keys[colIndex];
-
-  data.sort((a, b) =>
-    (parseFloat(a[key]) || 0) - (parseFloat(b[key]) || 0)
-  );
-
-  render(data);
-}
-
-// start loading immediately
-loadCSV();
 </script>
