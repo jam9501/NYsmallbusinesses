@@ -1,93 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NYC ZIP Code Explorer</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Arial;
+      background: #ffffff;
+      margin: 0;
+      padding: 24px;
+      color: #111;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 14px;
+    }
+
+    input {
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      width: 100%;
+      max-width: 320px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .table-wrapper {
+      border: 1px solid #e6e6e6;
+      border-radius: 8px;
+      overflow-x: auto;
+      background: #fff;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #fafafa;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: #f7f7f7;
+    }
+
+    .note {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h2>NYC ZIP Code Explorer</h2>
+  <div class="subtitle">
+    Brooklyn, Queens, Manhattan (NYC)
+  </div>
+
+  <input type="text" id="search" placeholder="Search ZIP or county..." />
+
+  <div class="table-wrapper">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>ZIP Code</th>
+          <th>County</th>
+          <th>Overall Score</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="note">Source: NYZipCodes.csv</div>
+
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+let data = [];
 
-  let data = [];
+// =========================================================
+// LOAD CSV (GitHub-safe style like your working project)
+// =========================================================
+fetch("./NYZipCodes.csv")
+  .then(res => {
+    if (!res.ok) throw new Error("CSV not found");
+    return res.text();
+  })
+  .then(text => {
 
-  async function loadCSV() {
-    try {
-      // safest GitHub Pages path resolution
-      const csvURL = new URL("NYZipCodes.csv", window.location.href);
+    // remove title row (your file issue)
+    const lines = text.split("\n");
+    const cleaned = lines.slice(1).join("\n");
 
-      const res = await fetch(csvURL);
-      if (!res.ok) throw new Error("CSV not found: " + res.status);
+    const parsed = Papa.parse(cleaned, {
+      header: true,
+      skipEmptyLines: true
+    }).data;
 
-      const text = await res.text();
-
-      // remove your "title row"
-      const lines = text.split("\n");
-      const cleaned = lines.slice(1).join("\n");
-
-      const parsed = Papa.parse(cleaned, {
-        header: true,
-        skipEmptyLines: true
-      }).data;
-
-      // filter boroughs
-      data = parsed.filter(r =>
-        ["Kings", "Queens", "New York"].includes(r.County)
-      );
-
-      render(data);
-
-    } catch (err) {
-      console.error(err);
-      document.body.innerHTML =
-        "<h3 style='color:red'>Failed to load CSV. Check filename/path in repo.</h3>";
-    }
-  }
-
-  function render(rows) {
-    const tbody = document.querySelector("#table tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    rows.forEach(r => {
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td>${r.Rank ?? ""}</td>
-        <td>${r["ZIP Code"] ?? ""}</td>
-        <td>${r.County ?? ""}</td>
-        <td>${r["Overall Score"] ?? ""}</td>
-      `;
-
-      tbody.appendChild(tr);
-    });
-  }
-
-  // search
-  const search = document.getElementById("search");
-
-  if (search) {
-    search.addEventListener("input", (e) => {
-      const q = e.target.value.toLowerCase();
-
-      const filtered = data.filter(r =>
-        Object.values(r).some(v =>
-          String(v).toLowerCase().includes(q)
-        )
-      );
-
-      render(filtered);
-    });
-  }
-
-  // sort
-  window.sortTable = function(colIndex) {
-    const keys = ["Rank", "ZIP Code", "County", "Overall Score"];
-    const key = keys[colIndex];
-
-    data.sort((a, b) =>
-      (parseFloat(a[key]) || 0) - (parseFloat(b[key]) || 0)
+    // filter BK / Queens / Manhattan
+    data = parsed.filter(r =>
+      ["Kings", "Queens", "New York"].includes(r.County)
     );
 
-    render(data);
-  };
+    renderTable(data);
+  })
+  .catch(err => {
+    console.error(err);
+    document.body.innerHTML =
+      "<h3 style='color:red'>CSV failed to load (check file location in repo)</h3>";
+  });
 
-  loadCSV();
 
+// =========================================================
+// RENDER TABLE
+// =========================================================
+function renderTable(rows) {
+  const tbody = document.querySelector("#table tbody");
+  tbody.innerHTML = "";
+
+  rows.forEach(r => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.Rank || ""}</td>
+        <td>${r["ZIP Code"] || ""}</td>
+        <td>${r.County || ""}</td>
+        <td>${r["Overall Score"] || ""}</td>
+      </tr>
+    `;
+  });
+}
+
+
+// =========================================================
+// SEARCH
+// =========================================================
+document.getElementById("search").addEventListener("input", e => {
+  const val = e.target.value.toLowerCase();
+
+  const filtered = data.filter(r =>
+    JSON.stringify(r).toLowerCase().includes(val)
+  );
+
+  renderTable(filtered);
 });
 </script>
+
+</body>
+</html>
