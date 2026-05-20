@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NY Zip Codes</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    input {
+      padding: 8px;
+      width: 320px;
+      margin-bottom: 12px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      cursor: pointer;
+      background: #f4f4f4;
+    }
+
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>NYC ZIP Codes (Brooklyn, Queens, Manhattan)</h2>
+
+<input type="text" id="search" placeholder="Search ZIP, County, Score..." />
+
+<table id="zipTable">
+  <thead>
+    <tr>
+      <th onclick="sortTable(0)">Rank</th>
+      <th onclick="sortTable(1)">ZIP Code</th>
+      <th onclick="sortTable(2)">County</th>
+      <th onclick="sortTable(3)">Overall Score</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+let data = [];
+
+// Load CSV
+fetch("NYZipCodes.csv")
+  .then(res => res.text())
+  .then(text => {
+
+    // Remove first "title row" before headers
+    const lines = text.split("\n");
+    const cleaned = lines.slice(1).join("\n");
+
+    const parsed = Papa.parse(cleaned, {
+      header: true,
+      skipEmptyLines: true
+    }).data;
+
+    // Filter BK, Queens, Manhattan
+    data = parsed.filter(row =>
+      ["Kings", "Queens", "New York"].includes(row.County)
+    );
+
+    renderTable(data);
+  });
+
+// Render table
+function renderTable(rows) {
+  const tbody = document.querySelector("#zipTable tbody");
+  tbody.innerHTML = "";
+
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${r.Rank || ""}</td>
+      <td>${r["ZIP Code"] || ""}</td>
+      <td>${r.County || ""}</td>
+      <td>${r["Overall Score"] || ""}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+// Search filter
+document.getElementById("search").addEventListener("input", function () {
+  const q = this.value.toLowerCase();
+
+  const filtered = data.filter(r =>
+    Object.values(r).some(v =>
+      String(v).toLowerCase().includes(q)
+    )
+  );
+
+  renderTable(filtered);
+});
+
+// Sort table (simple numeric sort fallback)
+function sortTable(colIndex) {
+  const keys = ["Rank", "ZIP Code", "County", "Overall Score"];
+  const key = keys[colIndex];
+
+  data.sort((a, b) => {
+    const aVal = parseFloat(a[key]) || 0;
+    const bVal = parseFloat(b[key]) || 0;
+    return aVal - bVal;
+  });
+
+  renderTable(data);
+}
+</script>
+
+</body>
+</html>
